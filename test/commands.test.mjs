@@ -66,6 +66,15 @@ test('keys create: shown once; one already there needs --replace; not available 
   assert.equal(r.code, 2);
 });
 
+test('keys create with a read-only sign-in says it needs a full one', async () => {
+  const r0 = await cli(['login', '--no-browser', '--read-only'], { fake, configDir: dir });
+  assert.equal(r0.code, 0, r0.err);
+  const r = await run(['keys', 'create', 'shop.example.org']);
+  assert.equal(r.code, 4);
+  assert.match(r.err, /This sign-in is read-only: making an app key needs a full sign-in\. Run cyberrakshak login \(without --read-only\)\./);
+  assert.equal(fake.state.madeKeys.length, 0);
+});
+
 test('errors: the site\'s problems; --json; filters reach the console', async () => {
   let r = await run(['errors', 'example.com']);
   assert.equal(r.code, 0, r.err);
@@ -237,6 +246,18 @@ test('help for every command, and wrong commands and options', async () => {
   r = await run(['sites', '--json', '--console']);
   assert.equal(r.code, 2);
   assert.equal(r.json.error.code, 'usage');
+});
+
+test('no request the command line makes carries an Origin header (the console refuses any that does)', async () => {
+  writeFileSync(join(work, '.env'), `CR_MONITOR_KEY=${KEY}\n`);
+  for (const args of [['whoami'], ['sites'], ['keys', 'create', 'shop.example.org'], ['errors', 'example.com'], ['test'], ['laptops'], ['alerts'], ['servers'], ['logout']]) {
+    await run(args);
+  }
+  await run(['run', '--', process.execPath, '-e', 'process.exit(2)'], { env: { CR_MONITOR_KEY: KEY } });
+  const seen = [...fake.state.calls.map((c) => c.headers), ...fake.state.reports.map((r) => r.headers)];
+  assert.ok(seen.length > 15);
+  assert.deepEqual(seen.filter((h) => 'origin' in h), []);
+  assert.ok(fake.state.reports.length >= 2, 'the test and the failed run were sent');
 });
 
 test('nothing the command line prints carries the sign-in token', async () => {

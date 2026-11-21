@@ -90,10 +90,11 @@ export async function startFakeConsole() {
     const m = String(req.headers.authorization || '').match(/^Bearer (.+)$/);
     return m ? m[1] : null;
   };
-  const issue = () => {
+  const issue = (readOnly = false) => {
     const token = '42|' + b64url(randomBytes(30));
-    fake.state.tokens.set(token, { revoked: false });
-    return { access_token: token, token_type: 'Bearer', expires_at: '2027-11-21T00:00:00+00:00', idle_days: 30, user: fake.state.user, organization: fake.state.organization };
+    fake.state.tokens.set(token, { revoked: false, readOnly });
+    const abilities = readOnly ? ['monitoring:read', 'security:read'] : ['monitoring:read', 'monitoring:write', 'security:read'];
+    return { access_token: token, token_type: 'Bearer', expires_at: '2027-11-21T00:00:00+00:00', idle_days: 30, abilities, user: fake.state.user, organization: fake.state.organization };
   };
 
   function handle(req, res, raw) {
@@ -113,7 +114,7 @@ export async function startFakeConsole() {
       const q = Object.fromEntries(url.searchParams);
       s.lastAuth = q;
       const port = Number(q.port);
-      if (!(port >= 1024 && port <= 65535) || q.code_challenge_method !== 'S256' || !/^[A-Za-z0-9_-]{43}$/.test(q.code_challenge || '')) {
+      if (!(port >= 1024 && port <= 65535) || q.code_challenge_method !== 'S256' || !/^[A-Za-z0-9_-]{43}$/.test(q.code_challenge || '') || !['read', undefined].includes(q.scope)) {
         json(res, 400, { message: 'bad request' });
         return;
       }
@@ -124,7 +125,7 @@ export async function startFakeConsole() {
         return;
       }
       const code = b64url(randomBytes(32));
-      s.codes.set(code, { challenge: q.code_challenge, redirect_uri: redirect, used: false });
+      s.codes.set(code, { challenge: q.code_challenge, redirect_uri: redirect, used: false, readOnly: q.scope === 'read' });
       res.writeHead(302, { Location: `${redirect}?code=${code}&state=${encodeURIComponent(s.browserAnswer === 'wrong-state' ? 'not-the-state' : q.state)}` });
       res.end();
       return;
@@ -138,7 +139,7 @@ export async function startFakeConsole() {
           return;
         }
         c.used = true;
-        json(res, 200, issue());
+        json(res, 200, issue(c.readOnly));
         return;
       }
       if (body && body.grant_type === 'urn:ietf:params:oauth:grant-type:device_code') {
@@ -149,7 +150,7 @@ export async function startFakeConsole() {
         }
         const answer = d.answers[Math.min(d.polls++, d.answers.length - 1)];
         if (answer === 'approve') {
-          json(res, 200, issue());
+          json(res, 200, issue(d.readOnly));
           return;
         }
         json(res, 400, { error: answer });
@@ -161,7 +162,7 @@ export async function startFakeConsole() {
 
     if (req.method === 'POST' && path === '/api/v1/cli/device') {
       const code = b64url(randomBytes(32));
-      s.devices.set(code, { answers: [...s.deviceAnswers], polls: 0, name: body && body.name });
+      s.devices.set(code, { answers: [...s.deviceAnswers], polls: 0, name: body && body.name, readOnly: !!body && body.scope === 'read' });
       json(res, 200, { device_code: code, user_code: 'BCDF-GHJK', verification_uri: `http://127.0.0.1:${server.address().port}/cli/activate`, verification_uri_complete: `http://127.0.0.1:${server.address().port}/cli/activate?code=BCDF-GHJK`, expires_in: s.deviceExpiresIn || 600, interval: 5 });
       return;
     }
@@ -216,7 +217,7 @@ export async function startFakeConsole() {
         return;
       }
       if (req.method === 'GET' && path === '/api/v1/cli/me') {
-        json(res, 200, { user: s.user, organization: s.organization, can: s.can, sign_in: { computer: 'TEST-PC', created_at: '2026-11-21T09:00:00+00:00', last_used_at: new Date().toISOString(), expires_at: '2027-11-21T00:00:00+00:00', idle_days: 30 } });
+        json(res, 200, { user: s.user, organization: s.organization, can: s.can, sign_in: { computer: 'TEST-PC', read_only: !!known.readOnly, created_at: '2026-11-21T09:00:00+00:00', last_used_at: new Date().toISOString(), expires_at: '2027-11-21T00:00:00+00:00', idle_days: 30 } });
         return;
       }
       if (req.method === 'DELETE' && path === '/api/v1/cli/token') {
@@ -234,6 +235,10 @@ export async function startFakeConsole() {
         const site = s.sites.find((x) => x.id === decodeURIComponent(m[1]));
         if (!site || !s.monitoring) {
           json(res, 404, { message: 'Not Found' });
+          return;
+        }
+        if (m[2] === 'app-key' && req.method === 'POST' && known.readOnly) {
+          json(res, 403, { message: 'This sign-in is read-only: making an app key needs a full sign-in. Run cyberrakshak login (without --read-only).' });
           return;
         }
         if (m[2] === 'app-key' && req.method === 'POST') {

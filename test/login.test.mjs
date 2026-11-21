@@ -161,6 +161,27 @@ test('login --no-browser: the local wait ends with the code even if the console 
   }
 });
 
+test('login --read-only: both flows ask for it, and the sign-in says so', async () => {
+  const seen = {};
+  let r = await cli(['login', '--read-only'], { fake, configDir: dir, openBrowser: fakeBrowser(seen) });
+  assert.equal(r.code, 0, r.err);
+  assert.equal(fake.state.lastAuth.scope, 'read');
+  assert.match(r.out, /\(organisation Example Traders\), read-only\./);
+  assert.equal(saved().read_only, true);
+  r = await cli(['whoami'], { fake, configDir: dir });
+  assert.match(r.out, /read-only \(it cannot make app keys\)/);
+  r = await cli(['login', '--no-browser', '--read-only', '--json'], { fake, configDir: dir });
+  assert.equal(r.code, 0, r.err);
+  assert.equal(r.json.read_only, true);
+  assert.equal(fake.state.calls.find((c) => c.path === '/api/v1/cli/device').body.scope, 'read');
+  // Without it: a full sign-in, and nothing asks for a scope.
+  r = await cli(['login', '--no-browser', '--json'], { fake, configDir: dir });
+  assert.equal(r.json.read_only, false);
+  assert.equal(fake.state.calls.filter((c) => c.path === '/api/v1/cli/device').pop().body.scope, undefined);
+  r = await cli(['login'], { fake, configDir: dir, openBrowser: fakeBrowser({}) });
+  assert.equal(fake.state.lastAuth.scope, undefined);
+});
+
 test('login --print-token: the token is printed once and not saved', async () => {
   const r = await cli(['login', '--no-browser', '--print-token'], { fake, configDir: dir });
   assert.equal(r.code, 0, r.err);
