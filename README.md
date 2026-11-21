@@ -16,6 +16,7 @@ cyberrakshak login
 ```sh
 cyberrakshak login                 # opens your browser; sign in as on the website, check the computer's name, press Allow
 cyberrakshak login --no-browser    # SSH and servers: shows a code to enter at /cli/activate on any phone or computer
+cyberrakshak login --read-only     # a sign-in that only reads: it cannot make app keys (CI and servers)
 cyberrakshak whoami                # who you are signed in as, your organisation, and what your account has
 cyberrakshak logout                # ends the sign-in in the console, then removes it from this computer
 ```
@@ -24,7 +25,8 @@ cyberrakshak logout                # ends the sign-in in the console, then remov
 the website more than 10 minutes before, the console asks you to confirm it is you before Allow. The browser is sent
 back only to this computer (`http://127.0.0.1:<port>/callback`), with a one-time code that works for a minute and
 only with a secret this command keeps in memory (PKCE). With `--no-browser`, the code lasts 10 minutes; the page you
-enter it on names the computer that asked and where it asked from, so check both before you press Allow.
+enter it on names the computer that asked, where it asked from and where your browser is, and says so when those are
+different networks: check them before you press Allow.
 
 The sign-in is kept for your user only: `%APPDATA%\cyberrakshak\credentials.json` on Windows,
 `~/.config/cyberrakshak/credentials.json` on macOS and Linux (`$XDG_CONFIG_HOME` if set), mode 0600. It is a sign-in for
@@ -32,9 +34,13 @@ the command line only: it does not open the website, the apps or anything else. 
 you revoke it in the console (**Sign-in & two-factor → Command line**, which lists every computer it is signed in on),
 after 30 days unused, or a year after it was made. It is not one of your plan's computers.
 
+**Read-only.** `login --read-only` (with either flow) asks for a sign-in that reads everything a full one does (sites,
+errors, laptops, alerts, servers) but cannot make or replace an app key; `keys create` with it says it needs a full
+sign-in. Give CI and servers a read-only one.
+
 **CI and servers.** `CYBERRAKSHAK_TOKEN`, when set, is used as the sign-in. To make one:
-`cyberrakshak login --no-browser --print-token` prints the token once without saving it; store it as a secret. A job
-that only reports failures (`cyberrakshak run`) needs no sign-in at all, only the site's app key.
+`cyberrakshak login --no-browser --read-only --print-token` prints a read-only token once without saving it; store it
+as a secret. A job that only reports failures (`cyberrakshak run`) needs no sign-in at all, only the site's app key.
 
 **Another console.** `--console <url>` or `CYBERRAKSHAK_CONSOLE` (default `https://app.cyberrakshak.ai`). Each console
 keeps its own sign-in. Plain `http://` only for this computer (`127.0.0.1`, `localhost`).
