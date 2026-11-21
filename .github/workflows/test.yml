@@ -1,0 +1,43 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    # No install: @cyberrakshak/cli has no dependencies. The tests run the command against test/fake-console.mjs
+    # (127.0.0.1 only: never a real Cyber Rakshak host), with a stand-in npm and composer on PATH.
+    name: '@cyberrakshak/cli, Node ${{ matrix.node }} on ${{ matrix.os }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: [18, 20, 22, 24]
+        include:
+          - { os: windows-latest, node: 22 }
+          - { os: macos-latest, node: 22 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # init's tests make git repositories; git needs a name to work with.
+      - run: git config --global user.name ci && git config --global user.email ci@example.invalid && git config --global init.defaultBranch main
+      - run: npm test
+
+  pack:
+    name: What npm pack would publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/check-pack.mjs

@@ -1,0 +1,39 @@
+{
+  "name": "@cyberrakshak/cli",
+  "version": "1.0.0",
+  "description": "The Cyber Rakshak command line: sign in from the terminal, set up error monitoring for your apps, servers and scripts, and read your laptops' and servers' security status. No dependencies.",
+  "license": "MIT",
+  "author": "Laabam One Business Solutions (OPC) Private Limited",
+  "homepage": "https://app.cyberrakshak.ai/sdk/README.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LaabamOne-Business-Solutions-Pvt-Ltd/cyberrakshak-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LaabamOne-Business-Solutions-Pvt-Ltd/cyberrakshak-cli/issues"
+  },
+  "keywords": [
+    "cli",
+    "security",
+    "error-monitoring",
+    "cyberrakshak"
+  ],
+  "type": "module",
+  "bin": {
+    "cyberrakshak": "bin/cyberrakshak.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/unit.test.mjs test/login.test.mjs test/commands.test.mjs test/run-init.test.mjs test/bin.test.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
