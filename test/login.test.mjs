@@ -210,7 +210,7 @@ test('whoami: who, the organisation, and what the account has; --json too', asyn
   assert.equal(r.json.can.servers, false);
   const call = fake.state.calls.filter((c) => c.path === '/api/v1/cli/me').pop();
   assert.match(call.headers.authorization, /^Bearer 42\|/);
-  assert.match(call.headers['user-agent'], /^cyberrakshak-cli\/1\.0\.0 /);
+  assert.match(call.headers['user-agent'], /^cyberrakshak-cli\/1\.1\.0 /);
 });
 
 test('not signed in, signed out, unused too long: each says so and ends with exit code 3', async () => {

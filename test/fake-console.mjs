@@ -52,6 +52,10 @@ export function freshState() {
         monitoring: { on: false, open: 0, new_today: 0, last_report_at: null, app_key: { on: false, masked: null, hint: null, made_at: null } } },
     ],
     monitoring: true,
+    // The workspace's own apps (console 2026-11-26), as `/cli/sites` gives them under `apps`; `euConfigured`: the console
+    // keeps data in the EU too, so adding one asks where (`region`). An EU one reports to /eu/api/v1/app-reports here.
+    apps: [],
+    euConfigured: false,
     madeKeys: [],
     problems: [
       { id: 7, kind: 'exception', platform: 'Server', level: 'error', title: 'TypeError: cannot read properties of undefined', occurrences: 12, day_count: 3, last_page: null, first_seen_at: '2026-11-19T10:00:00+00:00', last_seen_at: new Date().toISOString(), reopened: false },
@@ -167,8 +171,8 @@ export async function startFakeConsole() {
       return;
     }
 
-    if (req.method === 'POST' && path === '/api/v1/app-reports') {
-      s.reports.push({ headers: req.headers, body });
+    if (req.method === 'POST' && (path === '/api/v1/app-reports' || path === '/eu/api/v1/app-reports')) {
+      s.reports.push({ headers: req.headers, body, eu: path.startsWith('/eu/') });
       if (s.reportStatus === 204) {
         const m = String(req.headers.authorization || '').match(/^Bearer (crk_[A-Za-z0-9]{32})$/);
         if (m && body && Array.isArray(body.errors)) {
@@ -227,12 +231,42 @@ export async function startFakeConsole() {
         return;
       }
       if (req.method === 'GET' && path === '/api/v1/cli/sites') {
-        json(res, 200, { monitoring: s.monitoring, sites: s.sites.map((x) => ({ ...x, monitoring: s.monitoring ? x.monitoring : null })) });
+        json(res, 200, { monitoring: s.monitoring, sites: s.sites.map((x) => ({ ...x, monitoring: s.monitoring ? x.monitoring : null })), apps: s.monitoring ? s.apps : [] });
+        return;
+      }
+      if (req.method === 'POST' && path === '/api/v1/cli/apps') {
+        if (known.readOnly) {
+          json(res, 403, { message: 'This sign-in is read-only: adding an app needs a full sign-in.' });
+          return;
+        }
+        if (!s.monitoring) {
+          json(res, 403, { message: 'Error monitoring is not available on your account yet.' });
+          return;
+        }
+        const kinds = { mobile: 'Mobile app', api: 'API', mcp: 'MCP server', script: 'Script or cron job' };
+        const name = String((body && body.name) || '').trim().replace(/\s+/g, ' ');
+        const invalid = (field, message) => json(res, 422, { message, errors: { [field]: [message] } });
+        if (!body || !kinds[body.kind]) return invalid('kind', 'Choose what it is: mobile, api, mcp, script.');
+        if (!name) return invalid('name', 'Give it a name, for example the app\'s.');
+        if (s.euConfigured && !['india', 'eu'].includes(body.region)) return invalid('region', 'Choose where its data is kept: india or eu.');
+        if (s.apps.some((a) => a.name.toLowerCase() === name.toLowerCase())) return invalid('name', `${s.organization.name} has ${name} already. Give this one another name.`);
+        const key = 'crk_' + b64url(randomBytes(24)).replace(/[-_]/g, 'x').slice(0, 32);
+        const region = s.euConfigured ? body.region : 'india';
+        const app = {
+          id: `33333333-3333-4333-8333-${String(s.apps.length + 1).padStart(12, '0')}`,
+          kind: body.kind,
+          kind_label: kinds[body.kind],
+          name,
+          monitoring: { on: true, open: 0, new_today: 0, last_report_at: null, region, endpoint: `${fake.url}${region === 'eu' ? '/eu' : ''}/api/v1/app-reports`, app_key: { on: true, masked: 'crk_••••' + key.slice(-4), hint: key.slice(-4), made_at: new Date().toISOString() } },
+        };
+        s.apps.push(app);
+        s.madeKeys.push(key);
+        json(res, 201, { app, key, masked: app.monitoring.app_key.masked, made_at: app.monitoring.app_key.made_at });
         return;
       }
       const m = path.match(/^\/api\/v1\/cli\/sites\/([^/]+)\/(app-key|errors)$/);
       if (m) {
-        const site = s.sites.find((x) => x.id === decodeURIComponent(m[1]));
+        const site = s.sites.find((x) => x.id === decodeURIComponent(m[1])) || s.apps.find((x) => x.id === decodeURIComponent(m[1]));
         if (!site || !s.monitoring) {
           json(res, 404, { message: 'Not Found' });
           return;

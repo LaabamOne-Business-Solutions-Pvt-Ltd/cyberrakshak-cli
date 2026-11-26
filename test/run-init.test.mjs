@@ -216,7 +216,7 @@ test('init: a key for --site is made when the site has none, kept when .env has 
   const empty = scratch('cr-cli-empty-');
   r = await cli(['init'], { fake, configDir: dir, cwd: empty });
   assert.equal(r.code, 2);
-  assert.match(r.err, /Say which site/);
+  assert.match(r.err, /Say what the errors are for: --site example\.com for a website, --app "Shop app" for an app/);
   r = await cli(['init', '--type', 'cobol', '--key', KEY], { fake, configDir: dir, cwd: empty });
   assert.equal(r.code, 2);
 });

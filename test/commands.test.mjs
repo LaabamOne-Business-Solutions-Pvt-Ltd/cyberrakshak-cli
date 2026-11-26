@@ -57,7 +57,7 @@ test('keys create: shown once; one already there needs --replace; not available 
   assert.match(r.json.key, /^crk_[A-Za-z0-9]{32}$/);
   r = await run(['keys', 'create', 'nowhere.example']);
   assert.equal(r.code, 4);
-  assert.match(r.err, /No site "nowhere\.example" on your account\. Your sites: example\.com, shop\.example\.org\./);
+  assert.match(r.err, /No website or app "nowhere\.example" on your account\. Yours: example\.com, shop\.example\.org\./);
   fake.state.monitoring = false;
   r = await run(['keys', 'create', 'example.com']);
   assert.equal(r.code, 4);
@@ -114,7 +114,7 @@ test('test: sends a test with the key from .env, finds it on the Errors page, an
 test('test: a key no site has, a refused key, and a report that never shows up', async () => {
   let r = await run(['test', '--key', 'crk_' + 'Z'.repeat(32)]);
   assert.equal(r.code, 2);
-  assert.match(r.err, /None of your sites has the app key crk_••••ZZZZ/);
+  assert.match(r.err, /None of your websites or apps has the app key crk_••••ZZZZ/);
   r = await run(['test', '--key', 'not-a-key']);
   assert.equal(r.code, 2);
   r = await run(['test']);
@@ -232,7 +232,7 @@ test('help for every command, and wrong commands and options', async () => {
   r = await run([]);
   assert.equal(r.code, 2);
   r = await run(['--version']);
-  assert.equal(r.out.trim(), 'cyberrakshak 1.0.0');
+  assert.equal(r.out.trim(), 'cyberrakshak 1.1.0');
   r = await run(['frobnicate']);
   assert.equal(r.code, 2);
   assert.match(r.err, /Unknown command "frobnicate"/);
