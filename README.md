@@ -40,21 +40,31 @@ sign-in. Give CI and servers a read-only one.
 
 **CI and servers.** `CYBERRAKSHAK_TOKEN`, when set, is used as the sign-in. To make one:
 `cyberrakshak login --no-browser --read-only --print-token` prints a read-only token once without saving it; store it
-as a secret. A job that only reports failures (`cyberrakshak run`) needs no sign-in at all, only the site's app key.
+as a secret. A job that only reports failures (`cyberrakshak run`) needs no sign-in at all, only its app key.
 
 **Another console.** `--console <url>` or `CYBERRAKSHAK_CONSOLE` (default `https://app.cyberrakshak.ai`). Each console
 keeps its own sign-in. Plain `http://` only for this computer (`127.0.0.1`, `localhost`).
 
 ## Error monitoring
 
+Your websites and, beside them, your own apps: a mobile app, an API, an MCP server, or a script or cron job, each an
+item of its own with its own key and Errors page, as the console's **Apps & websites** lists them. A website is named
+by its address (`example.com`), an app by its name (`"Shop app"`), either by its id.
+
 ```sh
-cyberrakshak sites                        # your websites; with error monitoring, its state, app key and open problems
-cyberrakshak keys create example.com      # the site's app key, shown once (--replace makes a new one in its place)
-cyberrakshak init --site example.com      # in your project's folder: the library, the key in .env, how it starts
+cyberrakshak sites                        # your websites, then your apps; their state, app key and open problems
+cyberrakshak apps add "Shop app" --kind mobile   # add an app (mobile, api, mcp or script): its key, shown once
+cyberrakshak keys create example.com      # a website's or an app's key, shown once (--replace makes a new one)
+cyberrakshak init --app "Shop app"        # in your project's folder: the library, the key in .env, how it starts
+cyberrakshak init --app "Orders API" --kind api --region eu   # the same, adding the app first if there is none
 cyberrakshak test                         # sends a test problem with the app key and checks it arrived
 cyberrakshak run -- ./backup.sh --target s3://bucket   # runs it; if it fails, reports it
-cyberrakshak errors example.com           # the site's problems (--resolved, --platform server, --page 2)
+cyberrakshak errors "Shop app"            # its problems (--resolved, --platform server, --page 2)
 ```
+
+**`apps add`** adds an app as **Add** does in the console, and shows its key once. Once the console keeps data in the
+EU as well as India, it asks where (`--region india` or `--region eu`); that cannot be changed later. An app has
+nothing to verify: its secret key is what says a report is its.
 
 **`init`** works out what the folder is (`package.json` for Node.js or React Native / Expo, `composer.json`,
 `requirements.txt` or `pyproject.toml`, Android Gradle, `Package.swift` or an Xcode project; otherwise shell scripts)
@@ -64,18 +74,26 @@ and installs the library from its registry: `npm install @cyberrakshak/monitor` 
 `--from download`, the file is downloaded from the console's `/sdk/` and checked against the SHA-256 its
 `/sdk/index.json` lists before it is written; shell scripts always get the file (`cr-report.sh`).
 
-The key: `--key`, or `CR_MONITOR_KEY`, or the one already in `.env`; with `--site` and none of those, a key is made for
-the site (if it has one, `init` asks for it, or `--new-key` makes a new one, and the old one stops working at once).
+The key: `--key`, or `CR_MONITOR_KEY`, or the one already in `.env`; with `--site` (a website) or `--app` (an app) and
+none of those, a key is made for it (if it has one, `init` asks for it, or `--new-key` makes a new one, and the old one
+stops working at once). With `--app` and `--kind`, an app of that name is added first if the account has none.
 It is written to `.env` as `CR_MONITOR_KEY` (`EXPO_PUBLIC_CR_MONITOR_KEY` for Expo), never into a file git tracks; you
 are warned when `.env` is not in `.gitignore`. A mobile app carries its key in its build, so for Android, iOS and bare
 React Native it says where the key goes instead. `--no-install` only says what to run; `--type` chooses the library;
 `--dir` another folder; `--force` replaces a downloaded file you changed.
 
-**`test`** sends a warning named "Test from the Cyber Rakshak command line" with the app key, then reads the site's
-Errors page through the console until it is there (up to 15 seconds). Repeated tests add to that one problem.
+**Data kept in the EU.** A website or app whose data is kept in the EU reports to the EU server, not the console:
+`init` writes its address beside the key, as `CR_MONITOR_ENDPOINT` (`EXPO_PUBLIC_CR_MONITOR_ENDPOINT` for Expo), and
+the start lines pass it to the library; for Android, iOS and bare React Native it prints the address to give it.
+
+**`test`** sends a warning named "Test from the Cyber Rakshak command line" with the app key, then reads its Errors page
+through the console until it is there (up to 15 seconds). Repeated tests add to that one problem. It sends to
+`CR_MONITOR_ENDPOINT` (the environment, else `.env`) when it is set, else to the address the console gives the website
+or app, and says so when that address is not set where it runs.
 
 **`run`** runs the command as it is: its output passes through and `cyberrakshak` ends with the command's exit code.
-If it fails, it is reported with the app key (`--key`, `CR_MONITOR_KEY` or `.env`): the command's name (never its
+If it fails, it is reported with the app key (`--key`, `CR_MONITOR_KEY` or `.env`), to `CR_MONITOR_ENDPOINT` when it
+is set there: the command's name (never its
 arguments), its exit code and the last 20 lines of its standard error, scrubbed of email addresses, tokens and keys,
 `password=` values, query strings and card numbers, by the same rules as every Cyber Rakshak library. Ctrl+C is not
 reported. `--route` names it; `CR_MONITOR_ENVIRONMENT` and `CR_MONITOR_RELEASE` are sent when set.
@@ -142,7 +160,7 @@ skipped.
 3. Settings → Publishing access: "Require two-factor authentication and disallow tokens".
 4. Push the tag `v1.0.0`: the workflow runs every check and skips the version npm has.
 5. In the console, `CLI_PUBLISHED=true` in production's `.env` shows the install line (the "Command line" tab on a
-   site's "Apps, servers and scripts" card, and Sign-in & two-factor), with a What's new entry.
+   website's key card, and Sign-in & two-factor), with a What's new entry.
 
 ## Licence
 
